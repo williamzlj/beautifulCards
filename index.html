@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>读书笔记卡片 · 项目管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  body { background: #f5f5f7; color: #222; font-family: 'Noto Sans SC', system-ui, sans-serif; overflow: auto; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 36px 28px 60px; }
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px;
+  }
+  .page-title { font-size: 26px; font-weight: 700; letter-spacing: 0.5px; }
+  .page-title small { color: #888; font-weight: 400; font-size: 13px; margin-left: 10px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .btn { height: 38px; padding: 0 18px; border: 1px solid #d8d8dc; border-radius: 9px; background: #fff; color: #333; cursor: pointer; transition: all .15s; font-size: 14px; font-weight: 500; }
+  .btn:hover { background: #f0f0f3; }
+  .btn.primary { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+  .btn.primary:hover { background: #3a7cc1; }
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 22px;
+  }
+  .empty {
+    grid-column: 1 / -1;
+    padding: 100px 20px;
+    text-align: center;
+    background: #fff;
+    border: 2px dashed #ddd;
+    border-radius: 14px;
+    color: #999;
+    font-size: 15px;
+  }
+  .pcard {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border: 1px solid #ebebee;
+    transition: all .18s;
+    position: relative;
+    display: flex; flex-direction: column;
+  }
+  .pcard:hover { box-shadow: 0 8px 22px rgba(0,0,0,0.10); transform: translateY(-1px); }
+  .pcard .header {
+    padding: 26px 22px 18px;
+    border-bottom: 1px solid #f0f0f3;
+    background: linear-gradient(135deg, #f7f8fa 0%, #ffffff 100%);
+    min-height: 140px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .pcard .header .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #eef3fa; color: #3a6fb2; padding: 3px 10px;
+    border-radius: 12px; font-size: 12px; font-weight: 500;
+    width: fit-content; margin-bottom: 12px;
+  }
+  .pcard .header .chip.empty { background: #f5f5f5; color: #888; }
+  .pcard .name {
+    font-size: 20px; font-weight: 700; color: #222;
+    line-height: 1.3; margin-bottom: 8px;
+    word-break: break-all;
+  }
+  .pcard .header .sub {
+    color: #888; font-size: 13px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .pcard .header .sub .dot { color: #d0d0d4; }
+  .pcard .meta-bar {
+    padding: 12px 22px;
+    display: flex; justify-content: space-between; align-items: center;
+    color: #666; font-size: 12px;
+    border-bottom: 1px solid #f0f0f3;
+    background: #fafbfc;
+  }
+  .pcard .meta-bar .book-tip {
+    color: #444; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 60%;
+  }
+  .pcard .actions {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+  }
+  .pcard .actions .row1 { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pcard .actions .row2 { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, auto); gap: 8px 10px; }
+  .pcard .actions .main {
+    height: 42px;
+    border-radius: 8px;
+    border: 1px solid #d8d8dc;
+    background: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-decoration: none;
+    text-align: center;
+  }
+  .pcard .actions .main:hover { background: #f0f0f3; }
+  .pcard .actions .main.primary { background: #4a90d9; color: #fff; border-color: #4a90d9; }
+  .pcard .actions .main.primary:hover { background: #3a7cc1; }
+  .pcard .actions .mini {
+    height: 38px;
+    border-radius: 8px;
+    border: 1px solid #e4e4e8;
+    background: #fafbfc;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 10px;
+    white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .pcard .actions .mini:hover { background: #fff; border-color: #c8c8cd; color: #222; }
+  .pcard .actions .mini.danger:hover { color: #e25252; border-color: #f3caca; background: #fff5f5; }
+  .pcard .actions .mini:disabled { opacity: 0.35; cursor: not-allowed; }
+  .toast2 {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(40,40,40,0.92); color: #fff; padding: 12px 22px;
+    border-radius: 22px; font-size: 14px; z-index: 500;
+    animation: fadein .2s;
+  }
+  @keyframes fadein { from{opacity:0; transform: translate(-50%, 8px);} to{opacity:1; transform: translate(-50%, 0);} }
+  #import-file-pick { display: none; }
+  .muted { color: #888; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">读书笔记卡片 <small>项目管理</small></h1>
+      <div class="muted" id="stat-info" style="margin-top:4px"></div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="btn-import">📥 导入项目</button>
+      <button class="btn primary" id="btn-new">＋ 新建项目</button>
+    </div>
+  </div>
+
+  <div class="cards-grid" id="cards-grid">
+    <div class="empty">暂无项目，点击右上角「新建项目」开始使用吧 ✨</div>
+  </div>
+</div>
+
+<input type="file" id="import-file-pick" accept="application/json,.json" multiple />
+
+<script src="js/storage.js"></script>
+<script>
+(function() {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const grid = $('cards-grid');
+  const stat = $('stat-info');
+  const btnNew = $('btn-new');
+  const btnImport = $('btn-import');
+  const filePick = $('import-file-pick');
+
+  let list = [];
+
+  function load() {
+    const ps = window.Storage.listProjects();
+    list = ps.order.map(id => ps.byId[id]).filter(Boolean);
+    stat.textContent = '共 ' + list.length + ' 个项目';
+    render();
+  }
+
+  function genId() {
+    return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function fmtDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function cardHeadHtml(p) {
+    const cnt = (p.cards && p.cards.length) ? p.cards.length : 0;
+    const chipCls = cnt > 0 ? 'chip' : 'chip empty';
+    const chipText = cnt > 0 ? ('📑 ' + cnt + ' 张卡片') : '· 暂无内容';
+    const book = (p.meta && p.meta.book) ? ('《' + p.meta.book + '》') : '未填写书名';
+    const author = (p.meta && p.meta.author) || '';
+    const bookAuthor = author ? (book + ' · ' + author) : book;
+    const note = (p.meta && p.meta.note) || '';
+    return '' +
+      '<div class="header">' +
+        '<div>' +
+          '<span class="' + chipCls + '">' + chipText + '</span>' +
+        '</div>' +
+        '<div>' +
+          '<div class="name">' + escapeHtml(p.name) + '</div>' +
+          '<div class="sub">' +
+            '<span>' + escapeHtml(bookAuthor) + '</span>' +
+            (note ? ('<span class="dot">·</span><span>' + escapeHtml(note) + '</span>') : '') +
+            '<span class="dot">·</span>' +
+            '<span>更新 ' + fmtDate(p.updatedAt) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function render() {
+    if (list.length === 0) {
+      grid.innerHTML = '<div class="empty">暂无项目，点击右上角「新建项目」开始使用吧 ✨</div>';
+      return;
+    }
+    grid.innerHTML = '';
+    list.forEach((p, idx) => {
+      const card = document.createElement('div');
+      card.className = 'pcard';
+      const n = list.length;
+      const canUp = idx > 0;
+      const canDown = idx < n - 1;
+      const actBtn = (act, label, disabled, extraClass) => {
+        const cls = 'mini' + (extraClass ? ' ' + extraClass : '');
+        return '<button class="' + cls + '" data-act="' + act + '" ' +
+          (disabled ? 'disabled' : '') + '>' + label + '</button>';
+      };
+      card.innerHTML =
+        cardHeadHtml(p) +
+        '<div class="actions">' +
+          '<div class="row1">' +
+            '<a class="main" href="editor.html?id=' + p.id + '&mode=edit">✎ 编辑项目</a>' +
+            '<a class="main primary" href="editor.html?id=' + p.id + '&mode=view">👁 只读查看</a>' +
+          '</div>' +
+          '<div class="row2">' +
+            actBtn('up',     '⬆ 上移',    !canUp, '') +
+            actBtn('down',   '⬇ 下移',    !canDown, '') +
+            actBtn('rename', '✎ 重命名', false, '') +
+            actBtn('dup',    '⎘ 复制',    false, '') +
+            actBtn('export', '⬇ 导出',    false, '') +
+            actBtn('delete', '🗑 删除',   false, 'danger') +
+          '</div>' +
+        '</div>';
+
+      // 按钮事件：阻止冒泡（父卡片本体不绑定事件，所以不阻止也没问题）
+      card.querySelectorAll('.mini').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const act = btn.getAttribute('data-act');
+          if (btn.hasAttribute('disabled')) return;
+          doAct(act, p.id, idx);
+        });
+      });
+
+      grid.appendChild(card);
+    });
+  }
+
+  function doAct(act, id, idx) {
+    const p = window.Storage.getProject(id);
+    if (!p && act !== 'import') return;
+    switch (act) {
+      case 'up':    if (idx <= 0) return; move(idx, -1); break;
+      case 'down':  if (idx >= list.length - 1) return; move(idx, 1); break;
+      case 'rename': {
+        const name = prompt('重命名项目：', p.name);
+        if (!name) return;
+        p.name = name; p.updatedAt = Date.now();
+        window.Storage.saveProject(p);
+        load(); toast2('已重命名');
+        break;
+      }
+      case 'dup': {
+        const copy = JSON.parse(JSON.stringify(p));
+        copy.id = genId();
+        copy.name = p.name + ' 副本';
+        copy.createdAt = Date.now();
+        copy.updatedAt = Date.now();
+        window.Storage.saveProject(copy);
+        const ps = window.Storage.listProjects();
+        const order = ps.order.filter(x => x !== copy.id);
+        order.splice(Math.min(idx + 1, order.length), 0, copy.id);
+        window.Storage.reorderProjects(order);
+        load(); toast2('已复制为「' + copy.name + '」');
+        break;
+      }
+      case 'export': {
+        const data = {
+          app: 'beautifulCards', type: 'project', name: p.name,
+          input: p.input, meta: p.meta, cards: p.cards,
+          exportedAt: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = '卡片项目-' + p.name + '.json';
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+        toast2('已导出项目文件');
+        break;
+      }
+      case 'delete': {
+        if (!confirm('确定删除项目「' + p.name + '」？此操作不可恢复。')) return;
+        window.Storage.deleteProject(id);
+        load(); toast2('已删除');
+        break;
+      }
+    }
+  }
+
+  function move(idx, dir) {
+    const ps = window.Storage.listProjects();
+    const order = ps.order.slice();
+    const target = idx + dir;
+    if (target < 0 || target >= order.length) return;
+    [order[idx], order[target]] = [order[target], order[idx]];
+    window.Storage.reorderProjects(order);
+    load();
+  }
+
+  function newProject() {
+    const name = prompt('新项目名称：', '项目 ' + (list.length + 1));
+    if (!name) return;
+    const p = {
+      id: genId(),
+      name: name,
+      input: '',
+      meta: { book: '', author: '', date: '', note: '' },
+      cards: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    window.Storage.saveProject(p);
+    window.Storage.setActiveProjectId(p.id);
+    toast2('已新建项目「' + name + '」');
+    location.href = 'editor.html?id=' + p.id + '&mode=edit';
+  }
+
+  function importFiles(files) {
+    if (!files || files.length === 0) return;
+    let imported = 0, failed = 0;
+    const ps = window.Storage.listProjects();
+    const order = ps.order.slice();
+    let done = 0;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (!data || (data.type !== 'project' && typeof data.input === 'undefined')) throw 0;
+          const p = {
+            id: genId(),
+            name: data.name || '导入项目 ' + (imported + 1),
+            input: data.input || '',
+            meta: data.meta || { book:'', author:'', date:'', note:'' },
+            cards: data.cards || [],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          };
+          window.Storage.saveProject(p);
+          order.push(p.id);
+          imported++;
+        } catch (e) {
+          failed++;
+        }
+        done++;
+        if (done === files.length) {
+          window.Storage.reorderProjects(order);
+          load();
+          toast2('导入 ' + imported + ' 个' + (failed ? '，失败 ' + failed + ' 个' : ''));
+        }
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  function toast2(msg) {
+    let t = document.querySelector('.toast2');
+    if (!t) {
+      t = document.createElement('div');
+      t.className = 'toast2';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.style.display = 'block';
+    clearTimeout(toast2._t);
+    toast2._t = setTimeout(() => { t.style.display = 'none'; }, 2000);
+  }
+
+  btnNew.addEventListener('click', newProject);
+  btnImport.addEventListener('click', () => filePick.click());
+  filePick.addEventListener('change', e => {
+    importFiles(e.target.files);
+    e.target.value = '';
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

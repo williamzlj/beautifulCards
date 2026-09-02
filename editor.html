@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>读书笔记卡片排版工具</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500;700&family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&family=ZCOOL+KuaiLe&family=ZCOOL+QingKe+HuangYou&family=Long+Cang&family=Liu+Jian+Mao+Cao&family=Zhi+Mang+Xing&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/templates.css" />
+</head>
+<body>
+<div id="app">
+  <!-- 顶部工具栏 -->
+  <header class="toolbar">
+    <div class="toolbar-left">
+      <a class="btn-sm back-home" href="index.html" title="返回项目管理">← 首页</a>
+      <span class="logo">读书笔记卡片</span>
+      <span class="muted" id="proj-title-bar" style="margin-left:4px;font-size:12px"></span>
+      <div class="divider"></div>
+      <label class="field">
+        <span>模板</span>
+        <select id="template-select"></select>
+      </label>
+      <label class="field">
+        <span>尺寸</span>
+        <select id="size-select">
+          <option value="1:1">1:1 方形</option>
+          <option value="3:4" selected>3:4 竖版</option>
+          <option value="4:3">4:3 横版</option>
+          <option value="16:9">16:9 横版</option>
+          <option value="9:16">9:16 竖版</option>
+        </select>
+      </label>
+    </div>
+    <div class="toolbar-right">
+      <div class="mode-switch">
+        <button class="btn-mode active" data-mode="grid">网格</button>
+        <button class="btn-mode" data-mode="page">翻页</button>
+      </div>
+      <button class="btn" id="btn-save-template">保存模板</button>
+      <button class="btn" id="btn-export-png">导出图片</button>
+      <button class="btn" id="btn-export-pdf">导出PDF</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- 左侧：输入与参数面板 -->
+    <aside class="sidebar">
+      <div class="panel">
+        <div class="panel-header"><h3>卡片信息</h3></div>
+        <div class="meta-fields">
+          <div class="param-row">
+            <label>书名</label>
+            <input type="text" id="meta-book" placeholder="《活着》" />
+          </div>
+          <div class="param-row">
+            <label>作者</label>
+            <input type="text" id="meta-author" placeholder="余华" />
+          </div>
+          <div class="param-row">
+            <label>时间</label>
+            <input type="text" id="meta-date" placeholder="2024-03-15" />
+          </div>
+          <div class="param-row">
+            <label>备注</label>
+            <input type="text" id="meta-note" placeholder="读书笔记" />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>输入文本</h3>
+          <button class="btn-sm" id="btn-parse" title="解析并生成卡片">生成</button>
+        </div>
+        <textarea id="input-text" placeholder="在这里粘贴读书笔记…&#10;&#10;规则：用 --- 分隔多张卡；# 开头是标题（可省略），其余是正文。&#10;&#10;示例：&#10;&#10;# 论读书&#10;读书使人充实，会议使人敏捷，写作使人精确。&#10;---&#10;真正的友谊在于心与心的契合，而非利益的交换。"></textarea>
+        <div class="hint">用 <code>---</code> 分卡 · <code>#</code> 标题（可省略）· 其余正文</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><h3>模板参数</h3></div>
+        <div class="params" id="params-panel">
+          <div class="param-row">
+            <label>背景色</label>
+            <input type="color" id="p-bg-color" />
+          </div>
+          <div class="param-row">
+            <label>标题色</label>
+            <input type="color" id="p-title-color" />
+          </div>
+          <div class="param-row">
+            <label>正文色</label>
+            <input type="color" id="p-text-color" />
+          </div>
+          <div class="param-row">
+            <label>标题字号</label>
+            <input type="range" id="p-title-size" min="16" max="52" value="34" />
+            <span class="val" id="v-title-size">34</span>
+          </div>
+          <div class="param-row">
+            <label>正文字号</label>
+            <input type="range" id="p-text-size" min="12" max="32" value="20" />
+            <span class="val" id="v-text-size">20</span>
+          </div>
+          <div class="param-row">
+            <label>标题字体</label>
+            <select id="p-title-font">
+              <option value="'LXGW WenKai TC', serif">霞鹜文楷</option>
+              <option value="'Noto Serif SC', serif">思源宋体</option>
+              <option value="'Noto Sans SC', sans-serif">思源黑体</option>
+              <option value="'Ma Shan Zheng', cursive">马善政（毛笔）</option>
+              <option value="'ZCOOL XiaoWei', serif">站酷小薇</option>
+              <option value="'ZCOOL QingKe HuangYou', sans-serif">庆科黄油体</option>
+              <option value="'ZCOOL KuaiLe', cursive">站酷快乐体</option>
+              <option value="'Zhi Mang Xing', cursive">志莽行书</option>
+              <option value="'Long Cang', cursive">龙藏体</option>
+              <option value="'Liu Jian Mao Cao', cursive">柳建毛草</option>
+            </select>
+          </div>
+          <div class="param-row">
+            <label>标题对齐</label>
+            <select id="p-title-align">
+              <option value="left">左对齐</option>
+              <option value="center">居中</option>
+              <option value="right">右对齐</option>
+            </select>
+          </div>
+          <div class="param-row">
+            <label>正文字体</label>
+            <select id="p-text-font">
+              <option value="'LXGW WenKai TC', serif">霞鹜文楷</option>
+              <option value="'Noto Serif SC', serif">思源宋体</option>
+              <option value="'Noto Sans SC', sans-serif">思源黑体</option>
+              <option value="'Ma Shan Zheng', cursive">马善政（毛笔）</option>
+              <option value="'ZCOOL XiaoWei', serif">站酷小薇</option>
+              <option value="'ZCOOL QingKe HuangYou', sans-serif">庆科黄油体</option>
+              <option value="'ZCOOL KuaiLe', cursive">站酷快乐体</option>
+              <option value="'Zhi Mang Xing', cursive">志莽行书</option>
+              <option value="'Long Cang', cursive">龙藏体</option>
+              <option value="'Liu Jian Mao Cao', cursive">柳建毛草</option>
+            </select>
+          </div>
+          <div class="param-row">
+            <label>正文对齐</label>
+            <select id="p-text-align">
+              <option value="left">左对齐</option>
+              <option value="center">居中</option>
+              <option value="right">右对齐</option>
+            </select>
+          </div>
+          <div class="param-row">
+            <label>内边距</label>
+            <input type="range" id="p-padding" min="12" max="60" value="32" />
+            <span class="val" id="v-padding">32</span>
+          </div>
+          <div class="param-row">
+            <label>行距</label>
+            <input type="range" id="p-line-height" min="120" max="240" value="180" />
+            <span class="val" id="v-line-height">1.8</span>
+          </div>
+          <div class="param-row">
+            <label>装饰元素</label>
+            <input type="checkbox" id="p-decor" checked />
+          </div>
+          <div class="param-row">
+            <label>书名字号</label>
+            <input type="range" id="p-book-size" min="10" max="28" value="16" />
+            <span class="val" id="v-book-size">16</span>
+          </div>
+          <div class="param-row">
+            <label>作者字号</label>
+            <input type="range" id="p-author-size" min="10" max="26" value="17" />
+            <span class="val" id="v-author-size">17</span>
+          </div>
+          <div class="param-row">
+            <label>作者缩进</label>
+            <input type="range" id="p-author-pad" min="0" max="40" value="0" />
+            <span class="val" id="v-author-pad">0</span>
+          </div>
+          <div class="param-row">
+            <label>时间字号</label>
+            <input type="range" id="p-date-size" min="8" max="20" value="12" />
+            <span class="val" id="v-date-size">12</span>
+          </div>
+          <div class="param-row">
+            <label>备注字号</label>
+            <input type="range" id="p-note-size" min="9" max="26" value="15" />
+            <span class="val" id="v-note-size">15</span>
+          </div>
+          <div class="param-row">
+            <label>显示页码</label>
+            <input type="checkbox" id="p-show-number" checked />
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 右侧：卡片预览 -->
+    <section class="preview">
+      <div class="preview-toolbar">
+        <span id="card-count" class="muted">0 张卡片</span>
+        <div class="page-nav" id="page-nav" style="display:none">
+          <button class="btn-sm" id="btn-first" title="第一张">« 首</button>
+          <button class="btn-sm" id="btn-prev" title="上一张">‹上一张</button>
+          <span id="page-info">1 / 1</span>
+          <button class="btn-sm" id="btn-next" title="下一张">下一张›</button>
+          <button class="btn-sm" id="btn-last" title="最后一张">末 »</button>
+        </div>
+      </div>
+      <div class="preview-area" id="preview-area">
+        <div class="empty-hint" id="empty-hint">在左侧粘贴读书笔记后点击「生成」</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 编辑弹层 -->
+<div class="modal" id="edit-modal" style="display:none">
+  <div class="modal-content">
+    <div class="modal-header"><h3>编辑卡片</h3></div>
+    <div class="modal-body">
+      <label>标题（留空则不显示）</label>
+      <input type="text" id="edit-title" />
+      <label>正文</label>
+      <textarea id="edit-body" rows="6"></textarea>
+      <label>备注（留空则用全局备注）</label>
+      <input type="text" id="edit-note" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" id="edit-cancel">取消</button>
+      <button class="btn-sm primary" id="edit-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导出选项弹层 -->
+<div class="modal" id="export-modal" style="display:none">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="export-title">导出</h3></div>
+    <div class="modal-body">
+      <div id="export-image-options">
+        <label><input type="radio" name="export-img-mode" value="current" checked /> 当前可视卡片</label>
+        <label><input type="radio" name="export-img-mode" value="all" /> 全部卡片（打包 zip）</label>
+        <div class="param-row" style="margin-top:8px">
+          <label>格式</label>
+          <select id="export-img-format">
+            <option value="png">PNG</option>
+            <option value="jpeg">JPG</option>
+          </select>
+        </div>
+      </div>
+      <div id="export-pdf-options" style="display:none">
+        <div class="param-row">
+          <label>纸张</label>
+          <select id="export-pdf-size">
+            <option value="a4">A4</option>
+            <option value="a3">A3</option>
+          </select>
+        </div>
+        <div class="param-row">
+          <label>每页张数</label>
+          <select id="export-pdf-per-page">
+            <option value="1">1 张</option>
+            <option value="2">2 张</option>
+            <option value="4">4 张</option>
+            <option value="6" selected>6 张</option>
+            <option value="9">9 张</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" id="export-cancel">取消</button>
+      <button class="btn-sm primary" id="export-confirm">导出</button>
+    </div>
+  </div>
+</div>
+
+<!-- 可视化模板编辑器 -->
+<div class="modal" id="tpl-editor-modal" style="display:none">
+  <div class="modal-content tpl-editor-content">
+    <div class="modal-header">
+      <h3>自定义模板</h3>
+      <span class="muted" id="tpl-editor-hint">从左侧拖元素到画布 · 双击元素改文字 · 选中后右侧改属性</span>
+    </div>
+    <div class="tpl-editor-body">
+      <!-- 左侧：元素工具箱 -->
+      <div class="tpl-toolbox">
+        <div class="toolbox-title">元素</div>
+        <button class="tool-btn" data-add="text">T 文本</button>
+        <button class="tool-btn" data-add="rect">■ 矩形</button>
+        <button class="tool-btn" data-add="line">— 线条</button>
+        <button class="tool-btn" data-add="circle">● 圆形</button>
+        <div class="toolbox-title" style="margin-top:14px">操作</div>
+        <button class="tool-btn" id="tpl-delete-btn">删除选中</button>
+        <button class="tool-btn" id="tpl-duplicate-btn">复制选中</button>
+      </div>
+      <!-- 中间：画布 -->
+      <div class="tpl-canvas-wrap">
+        <div class="tpl-canvas" id="tpl-canvas"></div>
+      </div>
+      <!-- 右侧：属性面板 -->
+      <div class="tpl-props" id="tpl-props">
+        <div class="toolbox-title">属性</div>
+        <div id="tpl-props-empty" class="muted">选中元素后显示属性</div>
+        <div id="tpl-props-content" style="display:none">
+          <div class="param-row">
+            <label>X</label>
+            <input type="number" id="prop-x" />
+            <label>Y</label>
+            <input type="number" id="prop-y" />
+          </div>
+          <div class="param-row">
+            <label>宽</label>
+            <input type="number" id="prop-w" />
+            <label>高</label>
+            <input type="number" id="prop-h" />
+          </div>
+          <div class="param-row" id="prop-text-row">
+            <label>文本</label>
+            <input type="text" id="prop-text" />
+          </div>
+          <div class="param-row" id="prop-field-row">
+            <label>绑定</label>
+            <select id="prop-field">
+              <option value="">(自定义文本)</option>
+              <option value="book">书名</option>
+              <option value="author">作者</option>
+              <option value="date">时间</option>
+              <option value="note">备注</option>
+              <option value="title">标题</option>
+              <option value="body">正文</option>
+              <option value="number">序号</option>
+            </select>
+          </div>
+          <div class="param-row" id="prop-color-row">
+            <label>颜色</label>
+            <input type="color" id="prop-color" />
+          </div>
+          <div class="param-row" id="prop-font-row">
+            <label>字体</label>
+            <select id="prop-font">
+              <option value="'LXGW WenKai TC', serif">霞鹜文楷</option>
+              <option value="'Noto Serif SC', serif">思源宋体</option>
+              <option value="'Noto Sans SC', sans-serif">思源黑体</option>
+              <option value="'Ma Shan Zheng', cursive">马善政（毛笔）</option>
+              <option value="'ZCOOL XiaoWei', serif">站酷小薇</option>
+              <option value="'ZCOOL QingKe HuangYou', sans-serif">庆科黄油体</option>
+              <option value="'ZCOOL KuaiLe', cursive">站酷快乐体</option>
+              <option value="'Zhi Mang Xing', cursive">志莽行书</option>
+              <option value="'Long Cang', cursive">龙藏体</option>
+              <option value="'Liu Jian Mao Cao', cursive">柳建毛草</option>
+            </select>
+          </div>
+          <div class="param-row" id="prop-size-row">
+            <label>字号</label>
+            <input type="number" id="prop-size" min="8" max="64" />
+          </div>
+          <div class="param-row" id="prop-align-row">
+            <label>对齐</label>
+            <select id="prop-align">
+              <option value="left">左</option>
+              <option value="center">中</option>
+              <option value="right">右</option>
+            </select>
+          </div>
+        </div>
+        <div class="toolbox-title" style="margin-top:14px">画布</div>
+        <div class="param-row">
+          <label>背景色</label>
+          <input type="color" id="prop-bg" />
+        </div>
+        <div class="param-row">
+          <label>背景图</label>
+          <input type="file" id="prop-bg-image" accept="image/*" style="flex:1;min-width:0;font-size:10px" />
+        </div>
+        <button class="tool-btn" id="prop-bg-clear" style="height:26px;font-size:11px">移除背景图</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" id="tpl-clear-btn">清空</button>
+      <button class="btn-sm" id="tpl-cancel-btn">取消</button>
+      <button class="btn-sm primary" id="tpl-save-btn">保存为模板</button>
+    </div>
+  </div>
+</div>
+
+<!-- 只读查看模式退出按钮 -->
+<button id="exit-view-btn" class="exit-view-btn" style="display:none">退出只读查看 ✕</button>
+
+<!-- Toast -->
+<div id="toast" class="toast" style="display:none"></div>
+
+<!-- 第三方库 -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<!-- 应用脚本 -->
+<script src="js/templates.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/exporter.js"></script>
+<script src="js/template-editor.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

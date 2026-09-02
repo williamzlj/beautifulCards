@@ -1,0 +1,9 @@
+# OS / 编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# 临时文件
+node_modules/
