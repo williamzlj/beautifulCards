@@ -108,39 +108,6 @@
 .tpl-paper .card-footer { color: #1a1a1a; }
 .tpl-paper .card-title { color: #1a1a1a; font-family: 'LXGW WenKai TC', serif; }
 .tpl-paper .card-body { color: #333; font-family: 'LXGW WenKai TC', serif; }
-.tpl-paper .card-decor .title-underline {
-  position: relative;
-  display: inline-block;
-  margin-bottom: 12px;
-}
-.tpl-paper .card-decor .title-underline::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -6px;
-  height: 2px;
-  background: #1a1a1a;
-  width: 32px;
-}
-.tpl-paper .card-decor .corner-mark {
-  position: absolute;
-  bottom: 12px;
-  left: 12px;
-  width: 24px;
-  height: 24px;
-  border: 1px solid rgba(0,0,0,0.25);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  color: #888;
-  font-family: 'Noto Sans SC', sans-serif;
-  background: rgba(255,255,255,0.6);
-  z-index: 1;
-}
-
 /* ===== 现代极简风 ===== */
 .tpl-modern {
   background: #ffffff;
@@ -250,7 +217,7 @@
 .tpl-paper .card-decor .page-number   { color: #b0a890; }
 .tpl-modern .card-decor .page-number  { color: #4a90d9; opacity: 0.35; }
 .tpl-dark .card-decor .page-number    { color: #ffffff; opacity: 0.28; }
-.tpl-ink .card-decor .page-number     { color: #1a1a1a; opacity: 0.3; font-family: 'Ma Shan Zheng', 'LXGW WenKai TC', cursive; }
+.tpl-ink .card-decor .page-number     { color: #1a1a1a; opacity: 0.3; font-family: 'LXGW WenKai TC', 'Noto Serif SC', serif; font-weight: 400; letter-spacing: 0; }
 .tpl-notebook .card-decor .page-number{ color: #4a90d9; opacity: 0.35; }
 .tpl-gradient .card-decor .page-number{ color: #ffffff; opacity: 0.45; bottom: 10px; }
 

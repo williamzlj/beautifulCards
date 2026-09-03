@@ -16,8 +16,8 @@
   <header class="toolbar">
     <div class="toolbar-left">
       <a class="btn-sm back-home" href="index.html" title="返回项目管理">← 首页</a>
-      <span class="logo">读书笔记卡片</span>
-      <span class="muted" id="proj-title-bar" style="margin-left:4px;font-size:12px"></span>
+      
+      <span class="logo" id="proj-title-bar" style="margin-left:4px;font-size:16px;max-width:220px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"></span>
       <div class="divider"></div>
       <label class="field">
         <span>模板</span>
@@ -33,15 +33,31 @@
           <option value="9:16">9:16 竖版</option>
         </select>
       </label>
+      <label class="field" id="grid-size-field">
+        <span>网格</span>
+        <select id="grid-size-select">
+          <option value="S">小图 </option>
+          <option value="M" selected>中图 </option>
+          <option value="L">大图 </option>
+          <option value="XL">特大图 </option>
+        </select>
+      </label>
     </div>
+    
     <div class="toolbar-right">
+      <label class="toggle-sidebar" title="隐藏/显示编辑面板">
+        <input type="checkbox" id="toggle-sidebar" />
+        <span class="toggle-slider"></span>
+      </label>
       <div class="mode-switch">
         <button class="btn-mode active" data-mode="grid">网格</button>
         <button class="btn-mode" data-mode="page">翻页</button>
       </div>
+      <button class="btn" id="btn-tpl-lib" title="管理用户自定义模板（所有项目共享）">模板库</button>
       <button class="btn" id="btn-save-template">保存模板</button>
-      <button class="btn" id="btn-export-png">导出图片</button>
-      <button class="btn" id="btn-export-pdf">导出PDF</button>
+      
+      <button class="btn btn-two-line" id="btn-export-png">导出图片</button>
+      <button class="btn btn-two-line" id="btn-export-pdf">导出PDF</button>
     </div>
   </header>
 
@@ -53,27 +69,31 @@
         <div class="meta-fields">
           <div class="param-row">
             <label>书名</label>
-            <input type="text" id="meta-book" placeholder="《活着》" />
+            <input type="text" id="meta-book" placeholder="《输入书名》" />
           </div>
           <div class="param-row">
             <label>作者</label>
-            <input type="text" id="meta-author" placeholder="余华" />
-          </div>
-          <div class="param-row">
-            <label>时间</label>
-            <input type="text" id="meta-date" placeholder="2024-03-15" />
+            <input type="text" id="meta-author" placeholder="输入作者信息" />
           </div>
           <div class="param-row">
             <label>备注</label>
-            <input type="text" id="meta-note" placeholder="读书笔记" />
+            <input type="text" id="meta-note" placeholder="输入备注信息" />
           </div>
+          <div class="param-row">
+            <label>时间</label>
+            <input type="text" id="meta-date" placeholder="输入日期信息2026-09-15" />
+          </div>
+
         </div>
       </div>
 
       <div class="panel">
         <div class="panel-header">
           <h3>输入文本</h3>
-          <button class="btn-sm" id="btn-parse" title="解析并生成卡片">生成</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn-sm" id="btn-clear-input" title="清空文本框">清空</button>
+            <button class="btn-sm" id="btn-parse" title="解析并生成卡片">生成</button>
+          </div>
         </div>
         <textarea id="input-text" placeholder="在这里粘贴读书笔记…&#10;&#10;规则：用 --- 分隔多张卡；# 开头是标题（可省略），其余是正文。&#10;&#10;示例：&#10;&#10;# 论读书&#10;读书使人充实，会议使人敏捷，写作使人精确。&#10;---&#10;真正的友谊在于心与心的契合，而非利益的交换。"></textarea>
         <div class="hint">用 <code>---</code> 分卡 · <code>#</code> 标题（可省略）· 其余正文</div>
@@ -82,27 +102,41 @@
       <div class="panel">
         <div class="panel-header"><h3>模板参数</h3></div>
         <div class="params" id="params-panel">
+          <div class="param-group-title">卡片信息</div>
           <div class="param-row">
-            <label>背景色</label>
-            <input type="color" id="p-bg-color" />
+            <label>书名字号</label>
+            <input type="range" id="p-book-size" min="10" max="28" value="16" />
+            <span class="val" id="v-book-size">16</span>
           </div>
           <div class="param-row">
-            <label>标题色</label>
-            <input type="color" id="p-title-color" />
+            <label>作者字号</label>
+            <input type="range" id="p-author-size" min="10" max="26" value="17" />
+            <span class="val" id="v-author-size">17</span>
           </div>
           <div class="param-row">
-            <label>正文色</label>
-            <input type="color" id="p-text-color" />
+            <label>作者缩进</label>
+            <input type="range" id="p-author-pad" min="0" max="40" value="0" />
+            <span class="val" id="v-author-pad">0</span>
           </div>
+          <div class="param-row">
+            <label>备注字号</label>
+            <input type="range" id="p-note-size" min="9" max="26" value="15" />
+            <span class="val" id="v-note-size">15</span>
+          </div>
+          <div class="param-row">
+            <label>时间字号</label>
+            <input type="range" id="p-date-size" min="8" max="20" value="12" />
+            <span class="val" id="v-date-size">12</span>
+          </div>
+          <div class="param-group-title">标题</div>
           <div class="param-row">
             <label>标题字号</label>
             <input type="range" id="p-title-size" min="16" max="52" value="34" />
             <span class="val" id="v-title-size">34</span>
           </div>
           <div class="param-row">
-            <label>正文字号</label>
-            <input type="range" id="p-text-size" min="12" max="32" value="20" />
-            <span class="val" id="v-text-size">20</span>
+            <label>标题色</label>
+            <input type="color" id="p-title-color" />
           </div>
           <div class="param-row">
             <label>标题字体</label>
@@ -126,6 +160,16 @@
               <option value="center">居中</option>
               <option value="right">右对齐</option>
             </select>
+          </div>
+          <div class="param-group-title">正文</div>
+          <div class="param-row">
+            <label>正文字号</label>
+            <input type="range" id="p-text-size" min="12" max="32" value="20" />
+            <span class="val" id="v-text-size">20</span>
+          </div>
+          <div class="param-row">
+            <label>正文色</label>
+            <input type="color" id="p-text-color" />
           </div>
           <div class="param-row">
             <label>正文字体</label>
@@ -156,6 +200,21 @@
             <span class="val" id="v-padding">32</span>
           </div>
           <div class="param-row">
+            <label>左右边距</label>
+            <input type="range" id="p-pad-x" min="0" max="48" value="0" />
+            <span class="val" id="v-pad-x">0</span>
+          </div>
+          <div class="param-row">
+            <label>上边距</label>
+            <input type="range" id="p-pad-top" min="0" max="48" value="0" />
+            <span class="val" id="v-pad-top">0</span>
+          </div>
+          <div class="param-row">
+            <label>下边距</label>
+            <input type="range" id="p-pad-bottom" min="0" max="48" value="0" />
+            <span class="val" id="v-pad-bottom">0</span>
+          </div>
+          <div class="param-row">
             <label>行距</label>
             <input type="range" id="p-line-height" min="120" max="240" value="180" />
             <span class="val" id="v-line-height">1.8</span>
@@ -164,34 +223,19 @@
             <label>装饰元素</label>
             <input type="checkbox" id="p-decor" checked />
           </div>
+          <div class="param-group-title">页码与背景</div>
           <div class="param-row">
-            <label>书名字号</label>
-            <input type="range" id="p-book-size" min="10" max="28" value="16" />
-            <span class="val" id="v-book-size">16</span>
-          </div>
-          <div class="param-row">
-            <label>作者字号</label>
-            <input type="range" id="p-author-size" min="10" max="26" value="17" />
-            <span class="val" id="v-author-size">17</span>
-          </div>
-          <div class="param-row">
-            <label>作者缩进</label>
-            <input type="range" id="p-author-pad" min="0" max="40" value="0" />
-            <span class="val" id="v-author-pad">0</span>
-          </div>
-          <div class="param-row">
-            <label>时间字号</label>
-            <input type="range" id="p-date-size" min="8" max="20" value="12" />
-            <span class="val" id="v-date-size">12</span>
-          </div>
-          <div class="param-row">
-            <label>备注字号</label>
-            <input type="range" id="p-note-size" min="9" max="26" value="15" />
-            <span class="val" id="v-note-size">15</span>
+            <label>页码字号</label>
+            <input type="range" id="p-page-size" min="32" max="140" value="76" />
+            <span class="val" id="v-page-size">76</span>
           </div>
           <div class="param-row">
             <label>显示页码</label>
             <input type="checkbox" id="p-show-number" checked />
+          </div>
+          <div class="param-row">
+            <label>背景色</label>
+            <input type="color" id="p-bg-color" />
           </div>
         </div>
       </div>
@@ -211,6 +255,16 @@
       </div>
       <div class="preview-area" id="preview-area">
         <div class="empty-hint" id="empty-hint">在左侧粘贴读书笔记后点击「生成」</div>
+      </div>
+      <!-- 翻页模式：左右大号圆形翻页按钮 -->
+      <button class="page-fab page-fab-prev" id="page-fab-prev" title="上一张" style="display:none">‹</button>
+      <button class="page-fab page-fab-next" id="page-fab-next" title="下一张" style="display:none">›</button>
+      <!-- 翻页模式：右下角缩放滑条 -->
+      <div class="page-zoom" id="page-zoom" style="display:none">
+        <span class="page-zoom-label">缩放</span>
+        <input type="range" id="p-page-zoom" min="50" max="200" step="10" value="100" />
+        <span class="page-zoom-val" id="v-page-zoom">100%</span>
+        <button class="page-zoom-reset" id="btn-zoom-reset" title="重置为100%">重置</button>
       </div>
     </section>
   </main>
@@ -250,13 +304,24 @@
             <option value="jpeg">JPG</option>
           </select>
         </div>
+        <div class="param-row" style="margin-top:8px">
+          <label>图片宽度</label>
+          <select id="export-img-width">
+            <option value="720">720 px（标清）</option>
+            <option value="1280" selected>1280 px（高清）</option>
+            <option value="1440">1440 px</option>
+            <option value="2160">2160 px（超清）</option>
+          </select>
+        </div>
       </div>
       <div id="export-pdf-options" style="display:none">
         <div class="param-row">
           <label>纸张</label>
           <select id="export-pdf-size">
-            <option value="a4">A4</option>
-            <option value="a3">A3</option>
+            <option value="a4-portrait" selected>A4 纵向</option>
+            <option value="a4-landscape">A4 横向</option>
+            <option value="a3-portrait">A3 纵向</option>
+            <option value="a3-landscape">A3 横向</option>
           </select>
         </div>
         <div class="param-row">
@@ -383,6 +448,25 @@
       <button class="btn-sm" id="tpl-clear-btn">清空</button>
       <button class="btn-sm" id="tpl-cancel-btn">取消</button>
       <button class="btn-sm primary" id="tpl-save-btn">保存为模板</button>
+    </div>
+  </div>
+</div>
+
+<!-- 用户模板库管理弹层 -->
+<div class="modal" id="tpl-lib-modal" style="display:none">
+  <div class="modal-content" style="width:520px;max-width:92vw">
+    <div class="modal-header">
+      <h3>我的模板库</h3>
+      <span class="muted" style="font-size:12px">自定义模板在所有项目间共享</span>
+    </div>
+    <div class="modal-body">
+      <h4 class="tpl-lib-title">★ 参数模板（保存的样式参数）</h4>
+      <div id="tpl-lib-param-list" class="tpl-lib-list"></div>
+      <h4 class="tpl-lib-title" style="margin-top:16px">✦ 可视化模板（拖拽设计）</h4>
+      <div id="tpl-lib-visual-list" class="tpl-lib-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" id="tpl-lib-close">关闭</button>
     </div>
   </div>
 </div>

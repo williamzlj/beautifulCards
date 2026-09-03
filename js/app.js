@@ -8,17 +8,37 @@
     mode: 'grid',         // grid | page
     pageIndex: 0,         // 翻页模式当前索引
     editingCardId: null,
-    exportType: 'image'   // image | pdf
+    exportType: 'image',  // image | pdf
+    gridSize: 'M',        // 网格显示宽度 S=5/行 M=4/行 L=3/行 XL=2/行
+    pageZoom: 1           // 翻页模式缩放（0.5 ~ 2）
   };
+
+  // 网格宽度 → 每行卡片数
+  const GRID_COLS = { S: 5, M: 4, L: 3, XL: 2 };
 
   // ===== DOM 引用 =====
   const $ = id => document.getElementById(id);
   const els = {
     templateSelect: $('template-select'),
     sizeSelect: $('size-select'),
+    gridSizeSelect: $('grid-size-select'),
+    pageFabPrev: $('page-fab-prev'),
+    pageFabNext: $('page-fab-next'),
+    pageZoomBox: $('page-zoom'),
+    pPageZoom: $('p-page-zoom'),
+    vPageZoom: $('v-page-zoom'),
+    btnZoomReset: $('btn-zoom-reset'),
+    exportImgWidth: $('export-img-width'),
+    btnTplLib: $('btn-tpl-lib'),
+    tplLibModal: $('tpl-lib-modal'),
+    tplLibParamList: $('tpl-lib-param-list'),
+    tplLibVisualList: $('tpl-lib-visual-list'),
+    tplLibClose: $('tpl-lib-close'),
     input: $('input-text'),
     btnParse: $('btn-parse'),
+    btnClearInput: $('btn-clear-input'),
     btnSaveTemplate: $('btn-save-template'),
+    toggleSidebar: $('toggle-sidebar'),
     btnExportPng: $('btn-export-png'),
     btnExportPdf: $('btn-export-pdf'),
     previewArea: $('preview-area'),
@@ -47,6 +67,12 @@
     pTextAlign: $('p-text-align'),
     pPadding: $('p-padding'),
     vPadding: $('v-padding'),
+    pPadX: $('p-pad-x'),
+    vPadX: $('v-pad-x'),
+    pPadTop: $('p-pad-top'),
+    vPadTop: $('v-pad-top'),
+    pPadBottom: $('p-pad-bottom'),
+    vPadBottom: $('v-pad-bottom'),
     pLineHeight: $('p-line-height'),
     vLineHeight: $('v-line-height'),
     pDecor: $('p-decor'),
@@ -60,6 +86,8 @@
     vAuthorPad: $('v-author-pad'),
     pDateSize: $('p-date-size'),
     vDateSize: $('v-date-size'),
+    pPageSize: $('p-page-size'),
+    vPageSize: $('v-page-size'),
     pShowNumber: $('p-show-number'),
     // 编辑弹层
     editModal: $('edit-modal'),
@@ -91,16 +119,43 @@
   function init() {
     refreshTemplateList();
 
-    // 恢复上次参数
+    // 恢复上次模板与参数（预设 / 参数模板 / 可视化模板均记忆）
     const last = window.Storage.loadLastParams();
-    if (last && window.TEMPLATES[last.template]) {
-      els.templateSelect.value = last.template;
-      window.CURRENT_TEMPLATE = last.template;
-      window.CURRENT_PARAMS = { ...window.TEMPLATES[last.template].params, ...last.params };
+    if (last && last.template) {
+      const sel = last.template;
+      const exists = Array.from(els.templateSelect.options).some(o => o.value === sel);
+      if (exists && (sel.startsWith('custom:') || sel.startsWith('visual:'))) {
+        els.templateSelect.value = sel;
+        applyTemplateSelection();
+      } else if (window.TEMPLATES[sel]) {
+        els.templateSelect.value = sel;
+        window.CURRENT_TEMPLATE = sel;
+        window.CURRENT_PARAMS = { ...window.TEMPLATES[sel].params, ...(last.params || {}) };
+      } else {
+        els.templateSelect.value = window.CURRENT_TEMPLATE;
+      }
     } else {
       els.templateSelect.value = window.CURRENT_TEMPLATE;
     }
     normalizeParams();
+
+    // 恢复视图状态（卡片尺寸、网格显示宽度、翻页缩放）
+    const lastView = window.Storage.loadViewState();
+    if (lastView) {
+      if (lastView.size && els.sizeSelect.querySelector('option[value="' + lastView.size + '"]')) {
+        els.sizeSelect.value = lastView.size;
+        window.CURRENT_SIZE = lastView.size;
+      }
+      if (lastView.gridSize && GRID_COLS[lastView.gridSize]) {
+        state.gridSize = lastView.gridSize;
+        els.gridSizeSelect.value = lastView.gridSize;
+      }
+      if (lastView.pageZoom) {
+        state.pageZoom = Math.min(2, Math.max(0.5, lastView.pageZoom));
+        els.pPageZoom.value = Math.round(state.pageZoom * 100);
+        els.vPageZoom.textContent = Math.round(state.pageZoom * 100) + '%';
+      }
+    }
 
     // 恢复上次输入
     const lastInput = window.Storage.loadLastInput();
@@ -231,7 +286,12 @@
     if (p.authorSize == null) p.authorSize = 17;
     if (p.authorPad == null)  p.authorPad  = 0;
     if (p.dateSize == null)   p.dateSize   = 12;
+    if (p.pageSize == null)   p.pageSize   = 76;
     if (p.showNumber == null) p.showNumber = true;
+    // 独立边距（在基础内边距上叠加）
+    if (p.padX == null)      p.padX      = 0;
+    if (p.padTop == null)    p.padTop    = 0;
+    if (p.padBottom == null) p.padBottom = 0;
     // 同步回 font/align，保持旧字段一致（footer/header 继承用）
     p.font = p.textFont;
     p.align = p.textAlign;
@@ -254,6 +314,12 @@
   // ===== 事件绑定 =====
   function bindEvents() {
     els.btnParse.addEventListener('click', onParse);
+    els.btnClearInput.addEventListener('click', () => {
+      if (!els.input.value.trim()) return;
+      if (!confirm('确定清空文本框内容？')) return;
+      els.input.value = '';
+      els.input.focus();
+    });
     els.input.addEventListener('input', debounce(() => {
       window.Storage.saveLastInput(els.input.value);
     }, 500));
@@ -272,6 +338,31 @@
     els.sizeSelect.addEventListener('change', () => {
       window.CURRENT_SIZE = els.sizeSelect.value;
       render();
+      saveViewState();
+    });
+
+    // 网格显示宽度（每行卡片数）
+    els.gridSizeSelect.addEventListener('change', () => {
+      state.gridSize = els.gridSizeSelect.value;
+      render();
+      saveViewState();
+    });
+
+    // 翻页缩放
+    els.pPageZoom.addEventListener('input', () => {
+      state.pageZoom = +els.pPageZoom.value / 100;
+      els.vPageZoom.textContent = els.pPageZoom.value + '%';
+      render();
+      saveViewState();
+    });
+    // 重置缩放
+    els.btnZoomReset.addEventListener('click', () => {
+      state.pageZoom = 1;
+      els.pPageZoom.value = 100;
+      els.vPageZoom.textContent = '100%';
+      render();
+      saveViewState();
+      toast('缩放已重置为 100%');
     });
 
     // 模式切换
@@ -290,26 +381,47 @@
     els.btnNext.addEventListener('click', () => gotoPage(state.pageIndex + 1));
     els.btnFirst.addEventListener('click', () => gotoPage(0));
     els.btnLast.addEventListener('click', () => gotoPage(state.cards.length - 1));
+    // 翻页模式左右大号圆形按钮
+    els.pageFabPrev.addEventListener('click', () => gotoPage(state.pageIndex - 1));
+    els.pageFabNext.addEventListener('click', () => gotoPage(state.pageIndex + 1));
+
+    // 模板库管理
+    els.btnTplLib.addEventListener('click', openTplLib);
+    els.tplLibClose.addEventListener('click', () => els.tplLibModal.style.display = 'none');
+    els.tplLibModal.addEventListener('click', e => {
+      if (e.target === els.tplLibModal) els.tplLibModal.style.display = 'none';
+    });
 
     // 参数变更 → 实时重渲染
     const onParamChange = debounce(() => {
       readParamsFromUI();
       render();
-      window.Storage.saveLastParams(window.CURRENT_TEMPLATE, window.CURRENT_PARAMS);
+      window.Storage.saveLastParams(els.templateSelect.value, window.CURRENT_PARAMS);
     }, 100);
     [els.pBgColor, els.pTitleColor, els.pTextColor, els.pTitleSize, els.pTextSize,
      els.pTitleFont, els.pTitleAlign, els.pTextFont, els.pTextAlign,
-     els.pPadding, els.pLineHeight, els.pDecor, els.pNoteSize,
-     els.pBookSize, els.pAuthorSize, els.pAuthorPad, els.pDateSize, els.pShowNumber
+     els.pPadding, els.pPadX, els.pPadTop, els.pPadBottom,
+     els.pLineHeight, els.pDecor, els.pNoteSize,
+     els.pBookSize, els.pAuthorSize, els.pAuthorPad, els.pDateSize, els.pPageSize, els.pShowNumber
     ].forEach(el => el.addEventListener('input', onParamChange));
-    [els.pTitleSize, els.pTextSize, els.pPadding, els.pLineHeight, els.pNoteSize,
-     els.pBookSize, els.pAuthorSize, els.pAuthorPad, els.pDateSize
+    [els.pTitleSize, els.pTextSize, els.pPadding, els.pPadX, els.pPadTop, els.pPadBottom,
+     els.pLineHeight, els.pNoteSize,
+     els.pBookSize, els.pAuthorSize, els.pAuthorPad, els.pDateSize, els.pPageSize
     ].forEach(el => {
       el.addEventListener('input', () => updateRangeLabels());
     });
 
     // 保存模板
     els.btnSaveTemplate.addEventListener('click', onSaveTemplate);
+
+    // 隐藏/显示编辑面板
+    els.toggleSidebar.addEventListener('change', () => {
+      const hidden = els.toggleSidebar.checked;
+      document.querySelector('.sidebar').style.display = hidden ? 'none' : '';
+      document.body.classList.toggle('sidebar-hidden', hidden);
+      // 隐藏面板时让预览区重新布局
+      setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+    });
 
     // 导出
     els.btnExportPng.addEventListener('click', () => openExportModal('image'));
@@ -376,6 +488,7 @@
         // 参数面板对自定义模板无意义，禁用
         setParamsPanelEnabled(false);
         render();
+        window.Storage.saveLastParams(els.templateSelect.value, window.CURRENT_PARAMS);
         return;
       }
     }
@@ -399,7 +512,7 @@
     normalizeParams();
     syncParamsToUI();
     render();
-    window.Storage.saveLastParams(window.CURRENT_TEMPLATE, window.CURRENT_PARAMS);
+    window.Storage.saveLastParams(els.templateSelect.value, window.CURRENT_PARAMS);
   }
 
   // 启用/禁用参数面板（自定义可视化模板时不适用）
@@ -426,6 +539,12 @@
     els.pTextAlign.value = p.textAlign || p.align;
     els.pPadding.value = p.padding;
     els.vPadding.textContent = p.padding;
+    els.pPadX.value = p.padX;
+    els.vPadX.textContent = p.padX;
+    els.pPadTop.value = p.padTop;
+    els.vPadTop.textContent = p.padTop;
+    els.pPadBottom.value = p.padBottom;
+    els.vPadBottom.textContent = p.padBottom;
     els.pLineHeight.value = Math.round(p.lineHeight * 100);
     els.vLineHeight.textContent = p.lineHeight;
     els.pDecor.checked = p.decor;
@@ -439,6 +558,8 @@
     els.vAuthorPad.textContent = p.authorPad;
     els.pDateSize.value = p.dateSize;
     els.vDateSize.textContent = p.dateSize;
+    els.pPageSize.value = p.pageSize;
+    els.vPageSize.textContent = p.pageSize;
     els.pShowNumber.checked = p.showNumber !== false;
   }
   function readParamsFromUI() {
@@ -456,6 +577,9 @@
     p.font = p.textFont;
     p.align = p.textAlign;
     p.padding = +els.pPadding.value;
+    p.padX = +els.pPadX.value;
+    p.padTop = +els.pPadTop.value;
+    p.padBottom = +els.pPadBottom.value;
     p.lineHeight = +els.pLineHeight.value / 100;
     p.decor = els.pDecor.checked;
     p.noteSize = +els.pNoteSize.value;
@@ -463,21 +587,35 @@
     p.authorSize = +els.pAuthorSize.value;
     p.authorPad = +els.pAuthorPad.value;
     p.dateSize = +els.pDateSize.value;
+    p.pageSize = +els.pPageSize.value;
     p.showNumber = els.pShowNumber.checked;
   }
   function updateRangeLabels() {
     els.vTitleSize.textContent = els.pTitleSize.value;
     els.vTextSize.textContent = els.pTextSize.value;
     els.vPadding.textContent = els.pPadding.value;
+    els.vPadX.textContent = els.pPadX.value;
+    els.vPadTop.textContent = els.pPadTop.value;
+    els.vPadBottom.textContent = els.pPadBottom.value;
     els.vNoteSize.textContent = els.pNoteSize.value;
     els.vBookSize.textContent = els.pBookSize.value;
     els.vAuthorSize.textContent = els.pAuthorSize.value;
     els.vAuthorPad.textContent = els.pAuthorPad.value;
     els.vDateSize.textContent = els.pDateSize.value;
+    els.vPageSize.textContent = els.pPageSize.value;
     els.vLineHeight.textContent = (+els.pLineHeight.value / 100).toFixed(1);
   }
 
   // ===== 渲染 =====
+  // 统一保存视图状态（卡片尺寸 / 网格宽度 / 翻页缩放）
+  function saveViewState() {
+    window.Storage.saveViewState({
+      size: window.CURRENT_SIZE,
+      gridSize: state.gridSize,
+      pageZoom: state.pageZoom
+    });
+  }
+
   function render() {
     els.cardCount.textContent = state.cards.length + ' 张卡片';
     els.previewArea.innerHTML = '';
@@ -486,6 +624,9 @@
       els.emptyHint.style.display = 'block';
       els.previewArea.appendChild(els.emptyHint);
       els.pageNav.style.display = 'none';
+      els.pageFabPrev.style.display = 'none';
+      els.pageFabNext.style.display = 'none';
+      els.pageZoomBox.style.display = 'none';
       return;
     }
     els.emptyHint.style.display = 'none';
@@ -493,19 +634,31 @@
     if (state.mode === 'grid') {
       renderGrid();
       els.pageNav.style.display = 'none';
+      els.pageFabPrev.style.display = 'none';
+      els.pageFabNext.style.display = 'none';
+      els.pageZoomBox.style.display = 'none';
     } else {
       renderPage();
       els.pageNav.style.display = 'flex';
+      els.pageFabPrev.style.display = 'flex';
+      els.pageFabNext.style.display = 'flex';
+      els.pageZoomBox.style.display = 'flex';
+      // 首页/末页时禁用对应按钮
+      els.pageFabPrev.disabled = state.pageIndex <= 0;
+      els.pageFabNext.disabled = state.pageIndex >= state.cards.length - 1;
     }
   }
 
   function renderGrid() {
     els.previewArea.classList.remove('page-mode');
     const size = window.SIZE_PRESETS[window.CURRENT_SIZE] || window.SIZE_PRESETS['3:4'];
-    // 网格模式缩小到 240px 宽（按比例）
-    const scale = 240 / size.w;
-    const w = 240;
-    const h = size.h * scale;
+    // 按每行卡片数计算卡片宽度（小5/中4/大3/特大2）
+    const cols = GRID_COLS[state.gridSize] || 4;
+    const gap = 20;            // 与 CSS .preview-area 的 gap 一致
+    const pad = 24 * 2;        // .preview-area 左右 padding
+    const contentW = Math.max(200, els.previewArea.clientWidth - pad);
+    const w = Math.max(96, Math.floor((contentW - gap * (cols - 1)) / cols));
+    const h = size.h * (w / size.w);
 
     state.cards.forEach((card, idx) => {
       const wrap = createCardEl(card, idx, w, h);
@@ -519,14 +672,15 @@
     if (state.pageIndex >= state.cards.length) state.pageIndex = state.cards.length - 1;
     if (state.pageIndex < 0) state.pageIndex = 0;
     const size = window.SIZE_PRESETS[window.CURRENT_SIZE] || window.SIZE_PRESETS['3:4'];
-    // 动态计算可用空间，确保翻页卡片不铺满画布、留出上下左右空白
-    const availW = Math.max(200, els.previewArea.clientWidth - 80);
-    const availH = Math.max(200, els.previewArea.clientHeight - 80);
-    // 先按宽度放大（原逻辑），再受可用高度约束
-    let w = Math.min(560, size.w * 1.4);
+    // 基准尺寸：尽量大（上下留白仅 60px×2，左右 24px×2），再乘以用户缩放
+    const availW = Math.max(200, els.previewArea.clientWidth - 48);
+    const availH = Math.max(200, els.previewArea.clientHeight - 120);
+    let w = Math.min(760, size.w * 1.8);
     let h = size.h * (w / size.w);
     if (h > availH) { h = availH; w = size.w * (h / size.h); }
     if (w > availW) { w = availW; h = size.h * (w / size.w); }
+    w *= state.pageZoom;
+    h *= state.pageZoom;
 
     const card = state.cards[state.pageIndex];
     const wrap = createCardEl(card, state.pageIndex, w, h);
@@ -572,7 +726,12 @@
     cardEl.style.width = fullW + 'px';
     cardEl.style.height = fullH + 'px';
     cardEl.style.background = p.bgColor;
-    cardEl.style.padding = p.padding + 'px';
+    // 内边距 = 基础内边距 + 独立的左右/上/下边距微调
+    const padBase = p.padding || 0;
+    const padX = padBase + (p.padX || 0);
+    const padT = padBase + (p.padTop || 0);
+    const padB = padBase + (p.padBottom || 0);
+    cardEl.style.padding = padT + 'px ' + padX + 'px ' + padB + 'px ' + padX + 'px';
     // cardEl 整体字体/对齐用正文设置，让 header/footer 继承正文风格
     cardEl.style.textAlign = p.textAlign || p.align;
     cardEl.style.fontFamily = p.textFont || p.font;
@@ -653,6 +812,12 @@
       // {n} 替换为序号
       decor.innerHTML = tpl.params.decorHtml.replace('{n}', String(idx + 1).padStart(2, '0'));
       cardEl.appendChild(decor);
+    }
+
+    // 页码字号：应用到大水印页码元素（全尺寸基准，随卡片一起缩放）
+    if (p.pageSize) {
+      const pageNum = cardEl.querySelector('.page-number');
+      if (pageNum) pageNum.style.fontSize = p.pageSize + 'px';
     }
 
     // 编辑按钮
@@ -803,23 +968,88 @@
     if (!name) return;
     readParamsFromUI();
     window.Storage.saveTemplate(name, window.CURRENT_TEMPLATE, window.CURRENT_PARAMS);
-    // 刷新下拉
-    const saved = window.Storage.listTemplates();
-    // 删除旧的 custom 项
-    Array.from(els.templateSelect.querySelectorAll('option')).forEach(opt => {
-      if (opt.value.startsWith('custom:')) opt.remove();
-    });
-    Object.keys(saved).forEach(n => {
-      const opt = document.createElement('option');
-      opt.value = 'custom:' + n;
-      opt.textContent = '★ ' + n;
-      els.templateSelect.appendChild(opt);
-    });
+    // 重建下拉并选中新模板
+    refreshTemplateList();
     els.templateSelect.value = 'custom:' + name;
+    applyTemplateSelection();
     toast('模板「' + name + '」已保存');
   }
 
+  // ===== 用户模板库管理 =====
+  function openTplLib() {
+    renderTplLib();
+    els.tplLibModal.style.display = 'flex';
+  }
+
+  function renderTplLib() {
+    // 参数模板
+    const paramTpls = window.Storage.listTemplates();
+    els.tplLibParamList.innerHTML = '';
+    const paramNames = Object.keys(paramTpls);
+    if (paramNames.length === 0) {
+      els.tplLibParamList.innerHTML = '<div class="tpl-lib-empty">暂无参数模板（在调整好样式后点「保存模板」）</div>';
+    } else {
+      paramNames.forEach(name => {
+        els.tplLibParamList.appendChild(makeTplLibItem('★ ' + name, () => {
+          if (!confirm('确定删除参数模板「' + name + '」？')) return;
+          window.Storage.deleteTemplate(name);
+          afterTplDeleted('custom:' + name);
+        }));
+      });
+    }
+    // 可视化模板
+    const visualTpls = window.Storage.listCustomTemplates();
+    els.tplLibVisualList.innerHTML = '';
+    const visualNames = Object.keys(visualTpls);
+    if (visualNames.length === 0) {
+      els.tplLibVisualList.innerHTML = '<div class="tpl-lib-empty">暂无可视化模板（在模板下拉中选「新建可视化模板」）</div>';
+    } else {
+      visualNames.forEach(name => {
+        els.tplLibVisualList.appendChild(makeTplLibItem('✦ ' + name, () => {
+          if (!confirm('确定删除可视化模板「' + name + '」？')) return;
+          window.Storage.deleteCustomTemplate(name);
+          afterTplDeleted('visual:' + name);
+        }));
+      });
+    }
+  }
+
+  function makeTplLibItem(label, onDelete) {
+    const item = document.createElement('div');
+    item.className = 'tpl-lib-item';
+    const span = document.createElement('span');
+    span.className = 'tpl-lib-name';
+    span.textContent = label;
+    const del = document.createElement('button');
+    del.className = 'tpl-lib-del';
+    del.textContent = '🗑 删除';
+    del.addEventListener('click', onDelete);
+    item.appendChild(span);
+    item.appendChild(del);
+    return item;
+  }
+
+  // 删除模板后：刷新下拉；若删的是当前选中模板，回退到默认预设
+  function afterTplDeleted(deletedVal) {
+    const wasActive = els.templateSelect.value === deletedVal;
+    refreshTemplateList();
+    if (wasActive) {
+      els.templateSelect.value = window.TEMPLATES[window.CURRENT_TEMPLATE] ? window.CURRENT_TEMPLATE : Object.keys(window.TEMPLATES)[0];
+      applyTemplateSelection();
+    }
+    renderTplLib();
+    toast('模板已删除');
+  }
+
   // ===== 导出 =====
+  // 导出文件名基础：卡片导出-书名-2026年9月3日（书名去掉文件名非法字符）
+  function buildExportBaseName() {
+    const book = (window.META.book || '').trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '') || '未命名';
+    const now = new Date();
+    const dateStr = now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日';
+    return '卡片导出-' + book + '-' + dateStr;
+  }
+
   function openExportModal(type) {
     if (state.cards.length === 0) { toast('请先生成卡片'); return; }
     state.exportType = type;
@@ -832,26 +1062,34 @@
     els.exportModal.style.display = 'none';
     const cardEls = collectCardElsForExport();
     if (cardEls.length === 0) { toast('没有可导出的卡片'); return; }
+    const nameBase = buildExportBaseName();
+    // 导出完成后清理隐藏渲染容器
+    const cleanup = () => { if (window._exportContainer) { window._exportContainer.remove(); window._exportContainer = null; } };
 
     if (state.exportType === 'image') {
       const mode = document.querySelector('input[name="export-img-mode"]:checked').value;
       const format = els.exportImgFormat.value;
+      const width = +els.exportImgWidth.value || 1280;
       toast('开始导出，请稍候…');
       if (mode === 'current') {
-        // 当前可视卡片：取第一张
+        // 当前可视卡片：翻页模式取当前页，网格取第一张
+        const num = state.mode === 'page' ? state.pageIndex + 1 : 1;
         const target = cardEls[state.mode === 'page' ? state.pageIndex : 0];
-        window.Exporter.exportSingle(target, 'card-' + (state.mode === 'page' ? (state.pageIndex + 1) : 1), format)
-          .then(() => toast('已导出')).catch(err => { console.error(err); toast('导出失败'); });
+        window.Exporter.exportSingle(target, nameBase + '-' + num, format, width)
+          .then(() => toast('已导出')).catch(err => { console.error(err); toast('导出失败'); })
+          .finally(cleanup);
       } else {
-        window.Exporter.exportZip(cardEls, format, 'cards')
-          .then(() => toast('已导出 zip')).catch(err => { console.error(err); toast('导出失败'); });
+        window.Exporter.exportZip(cardEls, format, nameBase, width)
+          .then(() => toast('已导出 zip')).catch(err => { console.error(err); toast('导出失败'); })
+          .finally(cleanup);
       }
     } else {
       const pageSize = els.exportPdfSize.value;
       const perPage = +els.exportPdfPerPage.value;
       toast('正在生成 PDF，请稍候…');
-      window.Exporter.exportPDF(cardEls, pageSize, perPage)
-        .then(() => toast('PDF 已导出')).catch(err => { console.error(err); toast('导出失败'); });
+      window.Exporter.exportPDF(cardEls, pageSize, perPage, nameBase)
+        .then(() => toast('PDF 已导出')).catch(err => { console.error(err); toast('导出失败'); })
+        .finally(cleanup);
     }
   }
 

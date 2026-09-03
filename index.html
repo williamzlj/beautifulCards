@@ -140,8 +140,26 @@
     animation: fadein .2s;
   }
   @keyframes fadein { from{opacity:0; transform: translate(-50%, 8px);} to{opacity:1; transform: translate(-50%, 0);} }
-  #import-file-pick { display: none; }
+  #import-file-pick, #tpl-import-pick { display: none; }
   .muted { color: #888; font-size: 13px; }
+
+  /* 模板管理弹窗 */
+  .tpl-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 600; display: none; }
+  .tpl-modal-overlay.show { display: flex; align-items: center; justify-content: center; }
+  .tpl-modal { background: #fff; border-radius: 14px; width: 560px; max-width: 92vw; max-height: 82vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+  .tpl-modal-head { padding: 20px 24px 14px; border-bottom: 1px solid #f0f0f3; display: flex; align-items: center; justify-content: space-between; }
+  .tpl-modal-head h3 { font-size: 18px; font-weight: 700; }
+  .tpl-modal-head .sub { font-size: 12px; color: #888; margin-top: 2px; }
+  .tpl-modal-body { padding: 16px 24px; overflow-y: auto; flex: 1; }
+  .tpl-modal-foot { padding: 14px 24px; border-top: 1px solid #f0f0f3; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tpl-section-title { font-size: 14px; font-weight: 600; margin: 4px 0 10px; color: #333; }
+  .tpl-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid #ececef; border-radius: 8px; margin-bottom: 8px; }
+  .tpl-item .name { font-size: 14px; font-weight: 500; }
+  .tpl-item .acts { display: flex; gap: 6px; }
+  .tpl-item .acts button { height: 30px; padding: 0 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 12px; color: #555; }
+  .tpl-item .acts button:hover { background: #f0f0f3; }
+  .tpl-item .acts button.del:hover { color: #e25252; border-color: #f3caca; background: #fff5f5; }
+  .tpl-empty-hint { color: #aaa; font-size: 13px; padding: 8px 0; }
 </style>
 </head>
 <body>
@@ -152,6 +170,7 @@
       <div class="muted" id="stat-info" style="margin-top:4px"></div>
     </div>
     <div class="header-actions">
+      <button class="btn" id="btn-tpl-mgr">🎨 模板管理</button>
       <button class="btn" id="btn-import">📥 导入项目</button>
       <button class="btn primary" id="btn-new">＋ 新建项目</button>
     </div>
@@ -163,6 +182,27 @@
 </div>
 
 <input type="file" id="import-file-pick" accept="application/json,.json" multiple />
+<input type="file" id="tpl-import-pick" accept="application/json,.json" />
+
+<!-- 模板管理弹窗 -->
+<div class="tpl-modal-overlay" id="tpl-mgr-overlay">
+  <div class="tpl-modal">
+    <div class="tpl-modal-head">
+      <div>
+        <h3>🎨 模板管理</h3>
+        <div class="sub">自定义模板在所有项目间共享，可导出到其他电脑使用</div>
+      </div>
+      <button class="btn" style="height:32px;padding:0 14px;font-size:13px" id="tpl-mgr-close">关闭</button>
+    </div>
+    <div class="tpl-modal-body" id="tpl-mgr-body"></div>
+    <div class="tpl-modal-foot">
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="height:36px" id="tpl-import-btn">📥 导入模板</button>
+      </div>
+      <button class="btn primary" style="height:36px" id="tpl-export-all-btn">⬇ 导出全部模板</button>
+    </div>
+  </div>
+</div>
 
 <script src="js/storage.js"></script>
 <script>
@@ -198,7 +238,9 @@
     const cnt = (p.cards && p.cards.length) ? p.cards.length : 0;
     const chipCls = cnt > 0 ? 'chip' : 'chip empty';
     const chipText = cnt > 0 ? ('📑 ' + cnt + ' 张卡片') : '· 暂无内容';
-    const book = (p.meta && p.meta.book) ? ('《' + p.meta.book + '》') : '未填写书名';
+    const rawBook = (p.meta && p.meta.book) ? p.meta.book.trim() : '';
+    // 书名已带《》时不再重复添加
+    const book = rawBook ? (rawBook.startsWith('《') || rawBook.endsWith('》') ? rawBook : ('《' + rawBook + '》')) : '未填写书名';
     const author = (p.meta && p.meta.author) || '';
     const bookAuthor = author ? (book + ' · ' + author) : book;
     const note = (p.meta && p.meta.note) || '';
@@ -408,6 +450,135 @@
   filePick.addEventListener('change', e => {
     importFiles(e.target.files);
     e.target.value = '';
+  });
+
+  // ===== 模板管理 =====
+  const tplMgrBtn = $('btn-tpl-mgr');
+  const tplOverlay = $('tpl-mgr-overlay');
+  const tplBody = $('tpl-mgr-body');
+  const tplClose = $('tpl-mgr-close');
+  const tplImportBtn = $('tpl-import-btn');
+  const tplExportAllBtn = $('tpl-export-all-btn');
+  const tplImportPick = $('tpl-import-pick');
+
+  function renderTplMgr() {
+    const params = window.Storage.listTemplates();
+    const visuals = window.Storage.listCustomTemplates();
+    const paramNames = Object.keys(params);
+    const visualNames = Object.keys(visuals);
+    let html = '';
+
+    html += '<div class="tpl-section-title">★ 参数模板（' + paramNames.length + ' 个）</div>';
+    if (paramNames.length === 0) {
+      html += '<div class="tpl-empty-hint">暂无参数模板，可在编辑器中「保存模板」创建</div>';
+    } else {
+      paramNames.forEach(name => {
+        const t = params[name];
+        html += '<div class="tpl-item"><span class="name">' + escapeHtml(name) +
+          '</span><div class="acts">' +
+          '<button data-type="param" data-name="' + escapeHtml(name) + '" class="exp">导出</button>' +
+          '<button data-type="param" data-name="' + escapeHtml(name) + '" class="del">删除</button>' +
+          '</div></div>';
+      });
+    }
+
+    html += '<div class="tpl-section-title" style="margin-top:18px">✦ 可视化模板（' + visualNames.length + ' 个）</div>';
+    if (visualNames.length === 0) {
+      html += '<div class="tpl-empty-hint">暂无可视化模板，可在编辑器的「模板库」中拖拽设计</div>';
+    } else {
+      visualNames.forEach(name => {
+        html += '<div class="tpl-item"><span class="name">' + escapeHtml(name) +
+          '</span><div class="acts">' +
+          '<button data-type="visual" data-name="' + escapeHtml(name) + '" class="exp">导出</button>' +
+          '<button data-type="visual" data-name="' + escapeHtml(name) + '" class="del">删除</button>' +
+          '</div></div>';
+      });
+    }
+
+    tplBody.innerHTML = html;
+
+    tplBody.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.getAttribute('data-type');
+        const name = btn.getAttribute('data-name');
+        if (btn.classList.contains('del')) {
+          if (!confirm('确定删除模板「' + name + '」？')) return;
+          if (type === 'param') window.Storage.deleteTemplate(name);
+          else window.Storage.deleteCustomTemplate(name);
+          renderTplMgr();
+          toast2('已删除模板');
+        } else if (btn.classList.contains('exp')) {
+          exportSingleTemplate(type, name);
+        }
+      });
+    });
+  }
+
+  function exportSingleTemplate(type, name) {
+    const data = {
+      app: 'beautifulCards', type: 'template-bundle',
+      paramTemplates: type === 'param' ? { [name]: window.Storage.listTemplates()[name] } : {},
+      visualTemplates: type === 'visual' ? { [name]: window.Storage.listCustomTemplates()[name] } : {},
+      exportedAt: new Date().toISOString()
+    };
+    downloadTemplateBundle(data, name);
+  }
+
+  function downloadTemplateBundle(data, fileLabel) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '卡片模板-' + (fileLabel || '全部') + '.json';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    toast2('已导出模板文件');
+  }
+
+  tplMgrBtn.addEventListener('click', () => {
+    renderTplMgr();
+    tplOverlay.classList.add('show');
+  });
+  tplClose.addEventListener('click', () => tplOverlay.classList.remove('show'));
+  tplOverlay.addEventListener('click', e => { if (e.target === tplOverlay) tplOverlay.classList.remove('show'); });
+
+  tplExportAllBtn.addEventListener('click', () => {
+    const params = window.Storage.listTemplates();
+    const visuals = window.Storage.listCustomTemplates();
+    if (Object.keys(params).length === 0 && Object.keys(visuals).length === 0) {
+      toast2('暂无模板可导出');
+      return;
+    }
+    const data = {
+      app: 'beautifulCards', type: 'template-bundle',
+      paramTemplates: params,
+      visualTemplates: visuals,
+      exportedAt: new Date().toISOString()
+    };
+    downloadTemplateBundle(data, '全部');
+  });
+
+  tplImportBtn.addEventListener('click', () => tplImportPick.click());
+  tplImportPick.addEventListener('change', e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data || (data.type !== 'template-bundle' && !data.paramTemplates && !data.visualTemplates)) {
+          toast2('文件格式不正确');
+          return;
+        }
+        const result = window.Storage.importTemplatesBundle(data, false);
+        renderTplMgr();
+        toast2('已导入 ' + result.added + ' 个模板' + (result.skipped ? '，跳过 ' + result.skipped + ' 个同名' : ''));
+      } catch (err) {
+        toast2('解析文件失败');
+      }
+    };
+    reader.readAsText(file);
   });
 
   load();

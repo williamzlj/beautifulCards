@@ -69,6 +69,45 @@ window.Storage = {
     return data.meta || null;
   },
 
+  // 保存/读取视图状态（卡片尺寸、网格显示宽度）
+  saveViewState(state) {
+    const data = this._load();
+    data.viewState = { ...state };
+    this._save(data);
+  },
+  loadViewState() {
+    const data = this._load();
+    return data.viewState || null;
+  },
+
+  // 批量导入模板（合并，同名跳过或覆盖）
+  importTemplatesBundle(bundle, overwrite) {
+    const data = this._load();
+    if (!data.templates) data.templates = {};
+    if (!data.visualTemplates) data.visualTemplates = {};
+    let added = 0, skipped = 0;
+    if (bundle.paramTemplates) {
+      Object.keys(bundle.paramTemplates).forEach(name => {
+        const exists = !!data.templates[name];
+        if (!exists || overwrite) {
+          data.templates[name] = JSON.parse(JSON.stringify(bundle.paramTemplates[name]));
+          if (!exists) added++; else skipped++;
+        } else { skipped++; }
+      });
+    }
+    if (bundle.visualTemplates) {
+      Object.keys(bundle.visualTemplates).forEach(name => {
+        const exists = !!data.visualTemplates[name];
+        if (!exists || overwrite) {
+          data.visualTemplates[name] = JSON.parse(JSON.stringify(bundle.visualTemplates[name]));
+          if (!exists) added++; else skipped++;
+        } else { skipped++; }
+      });
+    }
+    this._save(data);
+    return { added, skipped };
+  },
+
   // 可视化自定义模板（拖拽设计的）
   saveCustomTemplate(name, tplData) {
     const data = this._load();

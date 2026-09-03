@@ -33,7 +33,7 @@ window.TEMPLATES = {
       padding: 32,
       lineHeight: 1.85,
       decor: true,
-      decorHtml: '<div class="title-underline"></div><div class="corner-mark">·</div><div class="page-number">{n}</div>'
+      decorHtml: '<div class="page-number">{n}</div>'
     }
   },
   modern: {

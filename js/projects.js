@@ -165,7 +165,7 @@ window.Projects = (function() {
     suppressSave = true;
     if (window.appAPI) window.appAPI.loadSnapshot({ input: p.input, meta: p.meta, cards: p.cards });
     suppressSave = false;
-    if (els.select.value !== id) els.select.value = id;
+    if (els.select && els.select.value !== id) els.select.value = id;
   }
 
   function switchTo(id) {
@@ -342,6 +342,8 @@ window.Projects = (function() {
     suppressSave = false;
     document.body.classList.add('view-mode');
     els.exitView.style.display = 'block';
+    const titleBar = document.getElementById('proj-title-bar');
+    if (titleBar) titleBar.textContent = '· ' + p.name + '（只读）';
     if (!fromHash) {
       history.pushState(null, '', '#view=' + id);
     }
