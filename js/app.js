@@ -1070,24 +1070,28 @@
       const mode = document.querySelector('input[name="export-img-mode"]:checked').value;
       const format = els.exportImgFormat.value;
       const width = +els.exportImgWidth.value || 1280;
-      toast('开始导出，请稍候…');
       if (mode === 'current') {
-        // 当前可视卡片：翻页模式取当前页，网格取第一张
         const num = state.mode === 'page' ? state.pageIndex + 1 : 1;
         const target = cardEls[state.mode === 'page' ? state.pageIndex : 0];
+        toastProgress('正在导出…');
         window.Exporter.exportSingle(target, nameBase + '-' + num, format, width)
           .then(() => toast('已导出')).catch(err => { console.error(err); toast('导出失败'); })
           .finally(cleanup);
       } else {
-        window.Exporter.exportZip(cardEls, format, nameBase, width)
+        toastProgress('开始导出 0/' + cardEls.length + ' …');
+        window.Exporter.exportZip(cardEls, format, nameBase, width, (done, total) => {
+          toastProgress('导出中 ' + done + '/' + total + ' …');
+        })
           .then(() => toast('已导出 zip')).catch(err => { console.error(err); toast('导出失败'); })
           .finally(cleanup);
       }
     } else {
       const pageSize = els.exportPdfSize.value;
       const perPage = +els.exportPdfPerPage.value;
-      toast('正在生成 PDF，请稍候…');
-      window.Exporter.exportPDF(cardEls, pageSize, perPage, nameBase)
+      toastProgress('开始生成 PDF 0/' + cardEls.length + ' …');
+      window.Exporter.exportPDF(cardEls, pageSize, perPage, nameBase, null, (done, total) => {
+        toastProgress('生成 PDF ' + done + '/' + total + ' …');
+      })
         .then(() => toast('PDF 已导出')).catch(err => { console.error(err); toast('导出失败'); })
         .finally(cleanup);
     }
@@ -1138,6 +1142,12 @@
     els.toast.style.display = 'block';
     clearTimeout(toast._t);
     toast._t = setTimeout(() => { els.toast.style.display = 'none'; }, 2000);
+  }
+  // 持久进度提示（不自动消失，需手动调用 toast 关闭）
+  function toastProgress(msg) {
+    els.toast.textContent = msg;
+    els.toast.style.display = 'block';
+    clearTimeout(toast._t);
   }
 
   // 等字体加载完成后再首次渲染
