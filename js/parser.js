@@ -1,15 +1,28 @@
 // parser.js - 解析多行文本为卡片数组
 // 规则：
 //   1) 用一行单独的 --- 分隔多张卡
-//   2) 每张卡内，第一行非空行若以 "# " 开头，则该行去掉 # 后作为标题
-//   3) 否则没有标题，所有非空行作为正文
-//   4) 标题若省略，card.title 为空字符串
-window.parseInput = function(text) {
+//   2) 可选：连续两个空行也作为分隔（doubleNewline 选项）
+//   3) 每张卡内，第一行非空行若以 "# " 开头，则该行去掉 # 后作为标题
+//   4) 否则没有标题，所有非空行作为正文
+//   5) 标题若省略，card.title 为空字符串
+window.parseInput = function(text, opts) {
+  opts = opts || {};
   if (!text || !text.trim()) return [];
   // 统一换行符
   const normalized = text.replace(/\r\n?/g, '\n');
-  // 按 --- 切分（一行单独的三个或更多连字符）
-  const blocks = normalized.split(/^\s*-{3,}\s*$/m);
+  let blocks;
+  if (opts.doubleNewline) {
+    // 先按 --- 切分，再对每个块按双空行切分
+    const parts = normalized.split(/^\s*-{3,}\s*$/m);
+    blocks = [];
+    parts.forEach(p => {
+      const sub = p.split(/\n\s*\n/);  // 连续两个换行（中间可有空白行）
+      sub.forEach(s => { if (s.trim()) blocks.push(s); });
+    });
+  } else {
+    // 仅按 --- 切分
+    blocks = normalized.split(/^\s*-{3,}\s*$/m);
+  }
   const cards = [];
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];

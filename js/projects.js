@@ -153,6 +153,9 @@ window.Projects = (function() {
     p.input = snap.input;
     p.meta = snap.meta;
     p.cards = snap.cards;
+    p.template = snap.template;
+    p.params = snap.params;
+    p.doubleNewline = snap.doubleNewline;
     p.updatedAt = Date.now();
     window.Storage.saveProject(p);
   }
@@ -163,7 +166,14 @@ window.Projects = (function() {
     currentId = id;
     window.Storage.setActiveProjectId(id);
     suppressSave = true;
-    if (window.appAPI) window.appAPI.loadSnapshot({ input: p.input, meta: p.meta, cards: p.cards });
+    if (window.appAPI) window.appAPI.loadSnapshot({
+      input: p.input,
+      meta: p.meta,
+      cards: p.cards,
+      template: p.template,
+      params: p.params,
+      doubleNewline: p.doubleNewline
+    });
     suppressSave = false;
     if (els.select && els.select.value !== id) els.select.value = id;
   }
@@ -281,6 +291,9 @@ window.Projects = (function() {
       input: p.input,
       meta: p.meta,
       cards: p.cards,
+      template: p.template,
+      params: p.params,
+      doubleNewline: p.doubleNewline,
       exportedAt: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -314,6 +327,9 @@ window.Projects = (function() {
           input: data.input || '',
           meta: data.meta || { book: '', author: '', date: '', note: '' },
           cards: data.cards || [],
+          template: data.template,
+          params: data.params,
+          doubleNewline: data.doubleNewline,
           createdAt: Date.now(),
           updatedAt: Date.now()
         };
@@ -338,7 +354,14 @@ window.Projects = (function() {
     window.Storage.setActiveProjectId(id);
     refreshSelect();
     suppressSave = true;
-    if (window.appAPI) window.appAPI.loadSnapshot({ input: p.input, meta: p.meta, cards: p.cards });
+    if (window.appAPI) window.appAPI.loadSnapshot({
+      input: p.input,
+      meta: p.meta,
+      cards: p.cards,
+      template: p.template,
+      params: p.params,
+      doubleNewline: p.doubleNewline
+    });
     suppressSave = false;
     document.body.classList.add('view-mode');
     els.exitView.style.display = 'block';

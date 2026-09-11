@@ -75,6 +75,9 @@
     vPadBottom: $('v-pad-bottom'),
     pLineHeight: $('p-line-height'),
     vLineHeight: $('v-line-height'),
+    pBodyTop: $('p-body-top'),
+    vBodyTop: $('v-body-top'),
+    pBodyCenter: $('p-body-center'),
     pDecor: $('p-decor'),
     pNoteSize: $('p-note-size'),
     vNoteSize: $('v-note-size'),
@@ -112,7 +115,9 @@
     metaDate: $('meta-date'),
     metaNote: $('meta-note'),
     // 编辑弹窗中的备注
-    editNote: $('edit-note')
+    editNote: $('edit-note'),
+    // 输入面板
+    pDoubleNewline: $('p-double-newline')
   };
 
   // ===== 初始化 =====
@@ -190,7 +195,11 @@
         return {
           input: els.input.value,
           meta: { ...window.META },
-          cards: JSON.parse(JSON.stringify(state.cards))
+          cards: JSON.parse(JSON.stringify(state.cards)),
+          // 项目独立的样式设置
+          template: els.templateSelect.value,
+          params: JSON.parse(JSON.stringify(window.CURRENT_PARAMS)),
+          doubleNewline: els.pDoubleNewline.checked
         };
       },
       // 加载某个项目快照到界面
@@ -198,14 +207,36 @@
         data = data || {};
         els.input.value = data.input || '';
         window.META = { book: '', author: '', date: '', note: '', ...(data.meta || {}) };
+        // 恢复项目独立的样式
+        if (data.template) {
+          const val = data.template;
+          const exists = Array.from(els.templateSelect.options).some(o => o.value === val);
+          if (exists) {
+            els.templateSelect.value = val;
+          } else {
+            // 找不到该模板时回退到当前
+          }
+        }
+        if (data.params) {
+          window.CURRENT_PARAMS = JSON.parse(JSON.stringify(data.params));
+          // 确保新字段有默认值
+          normalizeParams();
+        } else {
+          // 无保存参数：从当前模板初始化
+          applyTemplateSelection();
+        }
+        if (data.doubleNewline != null) {
+          els.pDoubleNewline.checked = !!data.doubleNewline;
+        }
         let cards = data.cards || [];
         // 无卡片但有输入文本时自动解析，刷新后即可见
         if (cards.length === 0 && data.input && data.input.trim() && window.parseInput) {
-          cards = window.parseInput(data.input);
+          cards = window.parseInput(data.input, { doubleNewline: els.pDoubleNewline.checked });
         }
         state.cards = cards;
         state.pageIndex = 0;
         syncMetaToUI();
+        syncParamsToUI();
         render();
       },
       // 卡片解析/编辑后通知项目保存
@@ -292,6 +323,9 @@
     if (p.padX == null)      p.padX      = 0;
     if (p.padTop == null)    p.padTop    = 0;
     if (p.padBottom == null) p.padBottom = 0;
+    // 正文独立参数
+    if (p.bodyTop == null)    p.bodyTop    = 0;
+    if (p.bodyCenter == null) p.bodyCenter = false;
     // 同步回 font/align，保持旧字段一致（footer/header 继承用）
     p.font = p.textFont;
     p.align = p.textAlign;
@@ -397,15 +431,17 @@
       readParamsFromUI();
       render();
       window.Storage.saveLastParams(els.templateSelect.value, window.CURRENT_PARAMS);
+      // 项目独立存储：参数变更也通知保存
+      if (window.appAPI && window.appAPI.notifyCardsChanged) window.appAPI.notifyCardsChanged();
     }, 100);
     [els.pBgColor, els.pTitleColor, els.pTextColor, els.pTitleSize, els.pTextSize,
      els.pTitleFont, els.pTitleAlign, els.pTextFont, els.pTextAlign,
      els.pPadding, els.pPadX, els.pPadTop, els.pPadBottom,
-     els.pLineHeight, els.pDecor, els.pNoteSize,
+     els.pLineHeight, els.pBodyTop, els.pBodyCenter, els.pDecor, els.pNoteSize,
      els.pBookSize, els.pAuthorSize, els.pAuthorPad, els.pDateSize, els.pPageSize, els.pShowNumber
     ].forEach(el => el.addEventListener('input', onParamChange));
     [els.pTitleSize, els.pTextSize, els.pPadding, els.pPadX, els.pPadTop, els.pPadBottom,
-     els.pLineHeight, els.pNoteSize,
+     els.pLineHeight, els.pBodyTop, els.pNoteSize,
      els.pBookSize, els.pAuthorSize, els.pAuthorPad, els.pDateSize, els.pPageSize
     ].forEach(el => {
       el.addEventListener('input', () => updateRangeLabels());
@@ -445,6 +481,22 @@
       if (e.key === 'End') gotoPage(state.cards.length - 1);
     });
 
+    // 鼠标滚轮翻页（仅翻页模式，且鼠标在预览区）
+    els.previewArea.addEventListener('wheel', e => {
+      if (state.mode !== 'page' || state.cards.length === 0) return;
+      if (els.editModal.style.display !== 'none' || els.exportModal.style.display !== 'none') return;
+      e.preventDefault();
+      if (Math.abs(e.deltaY) > 30) {
+        if (e.deltaY > 0) gotoPage(state.pageIndex + 1);
+        else gotoPage(state.pageIndex - 1);
+      }
+    }, { passive: false });
+
+    // 双回车分隔勾选时重新解析
+    els.pDoubleNewline.addEventListener('change', () => {
+      if (els.input.value.trim()) onParse();
+    });
+
     // 窗口尺寸变化时重渲染（翻页模式按可用空间留白）
     window.addEventListener('resize', debounce(() => render(), 200));
   }
@@ -452,7 +504,7 @@
   // ===== 解析文本 =====
   function onParse() {
     const text = els.input.value;
-    state.cards = window.parseInput(text);
+    state.cards = window.parseInput(text, { doubleNewline: els.pDoubleNewline.checked });
     state.pageIndex = 0;
     window.Storage.saveLastInput(text);
     render();
@@ -547,6 +599,9 @@
     els.vPadBottom.textContent = p.padBottom;
     els.pLineHeight.value = Math.round(p.lineHeight * 100);
     els.vLineHeight.textContent = p.lineHeight;
+    els.pBodyTop.value = p.bodyTop;
+    els.vBodyTop.textContent = p.bodyTop;
+    els.pBodyCenter.checked = p.bodyCenter;
     els.pDecor.checked = p.decor;
     els.pNoteSize.value = p.noteSize;
     els.vNoteSize.textContent = p.noteSize;
@@ -581,6 +636,8 @@
     p.padTop = +els.pPadTop.value;
     p.padBottom = +els.pPadBottom.value;
     p.lineHeight = +els.pLineHeight.value / 100;
+    p.bodyTop = +els.pBodyTop.value;
+    p.bodyCenter = els.pBodyCenter.checked;
     p.decor = els.pDecor.checked;
     p.noteSize = +els.pNoteSize.value;
     p.bookSize = +els.pBookSize.value;
@@ -597,6 +654,7 @@
     els.vPadX.textContent = els.pPadX.value;
     els.vPadTop.textContent = els.pPadTop.value;
     els.vPadBottom.textContent = els.pPadBottom.value;
+    els.vBodyTop.textContent = els.pBodyTop.value;
     els.vNoteSize.textContent = els.pNoteSize.value;
     els.vBookSize.textContent = els.pBookSize.value;
     els.vAuthorSize.textContent = els.pAuthorSize.value;
@@ -781,6 +839,12 @@
     bodyEl.style.lineHeight = p.lineHeight;
     bodyEl.style.fontFamily = p.textFont || p.font;
     bodyEl.style.textAlign = p.textAlign || p.align;
+    if (p.bodyTop) bodyEl.style.marginTop = p.bodyTop + 'px';
+    if (p.bodyCenter) {
+      bodyEl.style.display = 'flex';
+      bodyEl.style.flexDirection = 'column';
+      bodyEl.style.justifyContent = 'center';
+    }
     cardEl.appendChild(bodyEl);
 
     // 底部：备注（上）+ 日期（下）；单卡 note 优先于全局 META.note

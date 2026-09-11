@@ -96,6 +96,11 @@
           </div>
         </div>
         <textarea id="input-text" placeholder="在这里粘贴读书笔记…&#10;&#10;规则：用 --- 分隔多张卡；# 开头是标题（可省略），其余是正文。&#10;&#10;示例：&#10;&#10;# 论读书&#10;读书使人充实，会议使人敏捷，写作使人精确。&#10;---&#10;真正的友谊在于心与心的契合，而非利益的交换。"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px;color:#888">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" id="p-double-newline" /> 双回车也可分卡
+          </label>
+        </div>
         <div class="hint">用 <code>---</code> 分卡 · <code>#</code> 标题（可省略）· 其余正文</div>
       </div>
 
@@ -218,6 +223,15 @@
             <label>行距</label>
             <input type="range" id="p-line-height" min="120" max="240" value="180" />
             <span class="val" id="v-line-height">1.8</span>
+          </div>
+          <div class="param-row">
+            <label>正文上边距</label>
+            <input type="range" id="p-body-top" min="0" max="60" value="0" />
+            <span class="val" id="v-body-top">0</span>
+          </div>
+          <div class="param-row">
+            <label>正文上下居中</label>
+            <input type="checkbox" id="p-body-center" />
           </div>
           <div class="param-row">
             <label>装饰元素</label>
